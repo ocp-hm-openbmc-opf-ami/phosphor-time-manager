@@ -79,7 +79,7 @@ void Manager::onPropertyChanged(const std::string& key,
                         ntpSecInterface, propertyNtpSec ,
                         newNtpSecMode);
 
-                info("Updated NTPSec setting: {ENABLED}", "ENABLED", newNtpMode);
+                info("Updated NTPSec setting: {ENABLED}", "ENABLED", newNtpSecMode);
             }
             catch (const sdbusplus::exception_t& ex)
             {
@@ -108,7 +108,7 @@ void Manager::onPropertyChanged(const std::string& key,
                             ntpSecInterface, propertyNtpSec ,
                             newNtpSecMode);
 
-                    info("Updated NTPSec setting: {ENABLED}", "ENABLED", newNtpMode);
+                    info("Updated NTPSec setting: {ENABLED}", "ENABLED", newNtpSecMode);
                 }
                 catch (const sdbusplus::exception_t& ex)
                 {
@@ -132,7 +132,7 @@ void Manager::onPropertyChanged(const std::string& key,
                         ntpSecInterface, propertyNtpSec ,
                         newNtpSecMode);
 
-                info("Updated NTPSec setting: {ENABLED}", "ENABLED", newNtpMode);
+                info("Updated NTPSec setting: {ENABLED}", "ENABLED", newNtpSecMode);
             }
             catch (const sdbusplus::exception_t& ex)
             {

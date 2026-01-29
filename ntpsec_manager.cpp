@@ -114,6 +114,17 @@ void controlSystemdService(const std::string& serviceName, ServiceAction action)
     }
 }
 
+void setServiceEnabled(const std::string& serviceName, bool enable) {
+    std::string command = "systemctl ";
+    command += (enable ? "enable " : "disable ");
+    command += serviceName;
+    int ret = std::system(command.c_str());
+    if(ret != 0)
+    {
+	std::cerr << "Failed to update " << serviceName << " Enbled status: " << enable << std::endl;
+    }
+}
+
 void registerNTPSecDbus(std::shared_ptr<sdbusplus::asio::dbus_interface> iface) {
     std::vector<std::string> servers = {};
     bool isActive = isServiceActive();
@@ -145,9 +156,13 @@ void registerNTPSecDbus(std::shared_ptr<sdbusplus::asio::dbus_interface> iface) 
         [](const bool& newStatus, bool& current) {
             if (newStatus == current) return true;
             controlSystemdService("ntpd.service", newStatus ? ServiceAction::Start : ServiceAction::Stop);
+            setServiceEnabled("systemd-timesyncd.service", !newStatus);
 	    std::this_thread::sleep_for(std::chrono::seconds(2));
             current = isServiceActive();
             return true;
+        },
+	[](const auto&) {
+            return isServiceActive();
         }
     );
 
