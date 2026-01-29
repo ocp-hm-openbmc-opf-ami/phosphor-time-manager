@@ -137,6 +137,11 @@ void registerNTPSecDbus(std::shared_ptr<sdbusplus::asio::dbus_interface> iface) 
                 return true;
             }
             bool isActive = isServiceActive();
+
+	    if (newServers.size() > 3)
+	    {
+	        return false;
+	    }
             configureNtpServers(newServers);
 
             if(isActive)
