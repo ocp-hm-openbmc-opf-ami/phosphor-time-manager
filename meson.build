@@ -77,23 +77,29 @@ systemd_system_unit_dir = systemd.get_variable(
 )
 
 filesystem = import('fs')
-filesystem.copyfile(
-    'xyz.openbmc_project.Time.Manager.service',
-    install: true,
-    install_dir: systemd_system_unit_dir,
-)
+filesystem.copyfile('xyz.openbmc_project.Time.Manager.service',
+                    install: true,
+                    install_dir: systemd_system_unit_dir)
+
+filesystem.copyfile('xyz.openbmc_project.NTPSec.Manager.service',install: true,install_dir: systemd_system_unit_dir)
+
 
 #############################################################################
 
 # Build binaries
 
-executable(
-    'phosphor-time-manager',
-    'main.cpp',
-    link_with: libtimemanager,
-    dependencies: deps,
-    install: true,
-)
+executable('phosphor-time-manager',
+           'main.cpp',
+           link_with : libtimemanager,
+           dependencies : deps,
+           install : true)
+
+executable('ntpsec-manager',
+           'ntpsec_main.cpp',
+           'ntpsec_manager.cpp',
+           'ntpsec_manager.hpp',
+            dependencies : deps,
+           install : true)
 
 if get_option('tests').allowed()
     subdir('test')

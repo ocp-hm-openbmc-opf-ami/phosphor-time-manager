@@ -1,0 +1,11 @@
+[Unit]
+Description=Phosphor Secure NTP Manager daemon
+
+[Service]
+Restart=always
+ExecStart=/usr/bin/ntpsec-manager
+Type=dbus
+BusName=xyz.openbmc_project.NTPsec.Config
+
+[Install]
+WantedBy=multi-user.target

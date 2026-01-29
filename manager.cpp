@@ -1,7 +1,7 @@
 #include "manager.hpp"
 
 #include "utils.hpp"
-
+#include <iostream>
 #include <phosphor-logging/lg2.hpp>
 
 #include <cassert>
@@ -16,6 +16,12 @@ constexpr auto systemdTimePath = "/org/freedesktop/timedate1";
 constexpr auto systemdTimeInterface = "org.freedesktop.timedate1";
 constexpr auto methodSetNtp = "SetNTP";
 constexpr auto propertyNtp = "NTP";
+
+constexpr auto ntpSecService = "xyz.openbmc_project.NTPsec.Config";
+constexpr auto ntpSecPath = "/xyz/openbmc_project/NTPsec";
+constexpr auto ntpSecInterface = "xyz.openbmc_project.NTPsec.Config";
+constexpr auto propertyNtpSec = "NTPSecStatus";
+
 } // namespace
 
 namespace phosphor
@@ -34,6 +40,9 @@ Manager::Manager(sdbusplus::bus_t& bus) : bus(bus), settings(bus)
     settingsMatches.emplace_back(
         bus, propertiesChanged(settings.timeSyncMethod, settings::timeSyncIntf),
         [&](sdbusplus::message_t& m) { onSettingsChanged(m); });
+    ntpSecMatches.emplace_back(
+        bus, propertiesChanged(ntpSecPath, ntpSecInterface),
+        [&](sdbusplus::message_t& m) { onNtpsecChanged(m); });
 
     // Check the settings daemon to process the new settings
     auto mode = getSetting(settings.timeSyncMethod.c_str(),
@@ -45,23 +54,104 @@ Manager::Manager(sdbusplus::bus_t& bus) : bus(bus), settings(bus)
 void Manager::onPropertyChanged(const std::string& key,
                                 const std::string& value, bool forceSet)
 {
+
     assert(key == propertyTimeMode);
 
+
+
     bool newNtpMode = (settings::ntpSync == value);
-    bool oldNtpMode = (Mode::NTP == getTimeMode());
-    if (forceSet || (newNtpMode != oldNtpMode))
+    bool newNtpSecMode = (settings::ntpsecSync == value);
+
+    auto currentMode = getTimeMode();
+
+    bool oldNtpMode = (Mode::NTP == currentMode);
+    bool oldNtpSecMode = (Mode::NTPSec == currentMode);
+
+    bool isModeChanged = (forceSet || ( newNtpMode && !oldNtpMode) || (newNtpSecMode && !oldNtpSecMode));
+
+    if (settings::manualSync == value)
     {
-        // Notify listeners
-        onTimeModeChanged(value);
+        if(oldNtpSecMode)
+        {
+            try
+            {
+                utils::setProperty(bus, ntpSecService, ntpSecPath,
+                        ntpSecInterface, propertyNtpSec ,
+                        newNtpSecMode);
+
+                info("Updated NTPSec setting: {ENABLED}", "ENABLED", newNtpMode);
+            }
+            catch (const sdbusplus::exception_t& ex)
+            {
+                error("Failed to update NTPSec setting: {ERROR}", "ERROR", ex);
+            }
+        }
+        if(oldNtpMode)
+        {
+            onTimeModeChanged(value);
+        }
+
         setCurrentTimeMode(value);
-        debug("NTP property changed in phosphor-settings, update to systemd"
-              " time service.");
+
+    }
+
+    if (isModeChanged)
+    {
+
+        if (newNtpMode)
+        {
+            if(oldNtpSecMode)
+            {
+                try
+                {
+                    utils::setProperty(bus, ntpSecService, ntpSecPath,
+                            ntpSecInterface, propertyNtpSec ,
+                            newNtpSecMode);
+
+                    info("Updated NTPSec setting: {ENABLED}", "ENABLED", newNtpMode);
+                }
+                catch (const sdbusplus::exception_t& ex)
+                {
+                    error("Failed to update NTPSec setting: {ERROR}", "ERROR", ex);
+                }
+            }
+            onTimeModeChanged(value);
+
+            debug("NTP property changed in phosphor-settings, update to systemd"
+                    " time service.");
+        }
+        else if(newNtpSecMode)
+        {
+            if(oldNtpMode)
+            {
+                onTimeModeChanged(value);
+            }
+            try
+            {
+                utils::setProperty(bus, ntpSecService, ntpSecPath,
+                        ntpSecInterface, propertyNtpSec ,
+                        newNtpSecMode);
+
+                info("Updated NTPSec setting: {ENABLED}", "ENABLED", newNtpMode);
+            }
+            catch (const sdbusplus::exception_t& ex)
+            {
+                error("Failed to update NTPSec setting: {ERROR}", "ERROR", ex);
+            }
+
+            debug("NTP property changed in phosphor-settings, update to systemd"
+                    " time service.");
+        }
+
+        setCurrentTimeMode(value);
     }
     else
     {
+
         debug("NTP mode is already the same, skip setting to systemd time"
-              " service again.");
+                " service again.");
     }
+
 }
 
 int Manager::onSettingsChanged(sdbusplus::message_t& msg)
@@ -79,6 +169,54 @@ int Manager::onSettingsChanged(sdbusplus::message_t& msg)
     for (const auto& p : properties)
     {
         onPropertyChanged(p.first, std::get<std::string>(p.second));
+    }
+
+    return 0;
+}
+
+int Manager::onNtpsecChanged(sdbusplus::message_t& msg)
+{
+
+    using Properties = std::map<std::string, std::variant<std::string, bool>>;
+
+    std::string interface;
+    Properties properties;
+
+    msg.read(interface, properties);
+
+    auto iter = properties.find(propertyNtpSec);
+    if (iter == properties.end())
+    {
+        return -1;
+    }
+
+    try
+    {
+        bool newNtpSecMode = std::get<bool>(iter->second);
+        bool oldNtpSecMode = (Mode::NTPSec == getTimeMode());
+
+        if (newNtpSecMode != oldNtpSecMode)
+        {
+            const auto& timeMode = newNtpSecMode ? settings::ntpsecSync
+                                              : settings::manualSync;
+            std::string settingManager = utils::getService(
+                bus, settings.timeSyncMethod.c_str(), settings::timeSyncIntf);
+            utils::setProperty(bus, settingManager, settings.timeSyncMethod,
+                               settings::timeSyncIntf, propertyTimeMode,
+                               timeMode);
+            setCurrentTimeMode(timeMode);
+            debug("NTPSec property changed in systemd time service, update to"
+                  " phosphor-settings.");
+        }
+        else
+        {
+            debug("NTPsEC mode is already the same, skip setting to"
+                  " phosphor-settings again.");
+        }
+    }
+    catch (const std::exception& ex)
+    {
+        error("Failed to sync NTP: {ERROR}", "ERROR", ex);
     }
 
     return 0;
@@ -105,8 +243,8 @@ int Manager::onTimedateChanged(sdbusplus::message_t& msg)
         bool oldNtpMode = (Mode::NTP == getTimeMode());
         if (newNtpMode != oldNtpMode)
         {
-            const auto& timeMode =
-                newNtpMode ? settings::ntpSync : settings::manualSync;
+            const auto& timeMode = newNtpMode ? settings::ntpSync
+                                              : settings::manualSync;
             std::string settingManager = utils::getService(
                 bus, settings.timeSyncMethod.c_str(), settings::timeSyncIntf);
             utils::setProperty(bus, settingManager, settings.timeSyncMethod,

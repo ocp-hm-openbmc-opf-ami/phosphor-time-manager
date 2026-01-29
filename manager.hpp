@@ -54,6 +54,9 @@ class Manager
     /** @brief The match of settings property change */
     std::vector<sdbusplus::bus::match_t> settingsMatches;
 
+    /** @brief The match of NTP security property change */
+    std::vector<sdbusplus::bus::match_t> ntpSecMatches;
+
     /** @brief Settings objects of intereset */
     settings::Objects settings;
 
@@ -103,6 +106,14 @@ class Manager
      *  @return 0 on success, < 0 on failure.
      */
     int onSettingsChanged(sdbusplus::message_t& msg);
+
+    /** @brief Callback to handle change in a NTPSec
+     *
+     *  @param[in] msg - sdbusplus dbusmessage
+     *
+     *  @return 0 on success, < 0 on failure.
+     */
+    int onNtpsecChanged(sdbusplus::message_t& msg);
 
     /** @brief Notified on settings property changed
      *
