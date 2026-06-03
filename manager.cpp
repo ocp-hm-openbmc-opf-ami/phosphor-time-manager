@@ -204,8 +204,12 @@ int Manager::onNtpsecChanged(sdbusplus::message_t& msg)
             utils::setProperty(bus, settingManager, settings.timeSyncMethod,
                                settings::timeSyncIntf, propertyTimeMode,
                                timeMode);
-            setCurrentTimeMode(timeMode);
-            debug("NTPSec property changed in systemd time service, update to"
+	    if (utils::strToMode(timeMode) != getTimeMode())
+            {
+		setCurrentTimeMode(timeMode);
+                onTimeModeChanged(timeMode);
+	    }
+	    debug("NTPSec property changed in systemd time service, update to"
                   " phosphor-settings.");
         }
         else
