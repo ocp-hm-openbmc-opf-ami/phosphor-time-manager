@@ -86,7 +86,7 @@ void Manager::onPropertyChanged(const std::string& key,
                 error("Failed to update NTPSec setting: {ERROR}", "ERROR", ex);
             }
         }
-        if(oldNtpMode)
+        if(oldNtpMode || forceSet)
         {
             onTimeModeChanged(value);
         }
