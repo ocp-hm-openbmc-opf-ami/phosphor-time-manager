@@ -31,9 +31,17 @@ compiler = meson.get_compiler('cpp')
 
 # Find the dependencies
 
-sdbusplus_dep = dependency('sdbusplus')
-phosphor_logging_dep = dependency('phosphor-logging')
-phosphor_dbus_interfaces_dep = dependency('phosphor-dbus-interfaces')
+if (get_option('tests').enabled())
+        sdbusplus_dep = subproject('sdbusplus').get_variable('sdbusplus_dep')
+	meson.override_dependency('sdbusplus',sdbusplus_dep)
+	phosphor_dbus_interfaces_dep = dependency('phosphor-dbus-interfaces-ami')
+	phosphor_logging_dep = subproject('phosphor-logging').get_variable('phosphor_logging_dep')
+else
+        sdbusplus_dep = dependency('sdbusplus')
+	phosphor_dbus_interfaces_dep = dependency('phosphor-dbus-interfaces')
+	phosphor_logging_dep = dependency('phosphor-logging')
+
+endif
 deps = [sdbusplus_dep, phosphor_logging_dep, phosphor_dbus_interfaces_dep]
 
 ###########################################################################
